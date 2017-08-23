@@ -1,16 +1,56 @@
 package com.yoctopuce.myapplication;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.TextView;
+
+import com.yoctopuce.YoctoAPI.YAPI;
+import com.yoctopuce.YoctoAPI.YAPI_Exception;
+import com.yoctopuce.YoctoAPI.YTemperature;
+
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity
 {
+
+    private TextView _temperatureTextView;
+    private Handler _handler;
+    private Runnable _periodicUpdateDeviceList = new Runnable()
+    {
+        @Override
+        public void run()
+        {
+            try {
+                if (_hardwaredetect == 0) {
+                    //Log.d("YAPI", "UpdateDeviceList");
+                    YAPI.UpdateDeviceList();
+                }
+                _hardwaredetect = (_hardwaredetect + 1) % 20;
+                if (_sensor == null) _sensor = YTemperature.FirstTemperature();
+                if (_sensor != null && _sensor.isOnline()) {
+                    final String text = String.format(Locale.US, "%.2f %s", _sensor.get_currentValue(), _sensor.get_unit());
+                    _temperatureTextView.setText(text);
+                } else {
+                    _temperatureTextView.setText("OFFLINE");
+                    _sensor = null;
+                }
+            } catch (YAPI_Exception e) {
+                Snackbar.make(_temperatureTextView, "Error:" + e.getLocalizedMessage(), Snackbar.LENGTH_INDEFINITE).show();
+
+                //e.printStackTrace();
+            }
+            _handler.postDelayed(_periodicUpdateDeviceList, 500);
+        }
+    };
+    private double _hardwaredetect;
+    private YTemperature _sensor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -19,6 +59,7 @@ public class MainActivity extends AppCompatActivity
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+        _temperatureTextView = (TextView) findViewById(R.id.temperature);
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener()
@@ -30,6 +71,31 @@ public class MainActivity extends AppCompatActivity
                         .setAction("Action", null).show();
             }
         });
+        _handler = new Handler();
+
+    }
+
+
+    @Override
+    protected void onStart()
+    {
+        super.onStart();
+        try {
+            YAPI.EnableUSBHost(this);
+            YAPI.RegisterHub("usb");
+        } catch (YAPI_Exception e) {
+            Snackbar.make(_temperatureTextView, "Error:" + e.getLocalizedMessage(), Snackbar.LENGTH_INDEFINITE).show();
+        }
+        _handler.postDelayed(_periodicUpdateDeviceList, 500);
+    }
+
+
+    @Override
+    protected void onStop()
+    {
+        _handler.removeCallbacks(_periodicUpdateDeviceList);
+        YAPI.FreeAPI();
+        super.onStop();
     }
 
     @Override
