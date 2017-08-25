@@ -22,18 +22,19 @@ public class MainActivity extends AppCompatActivity
 
     private TextView _temperatureTextView;
     private Handler _handler;
-    private Runnable _periodicUpdateDeviceList = new Runnable()
+    private Runnable _periodicUpdate = new Runnable()
     {
         @Override
         public void run()
         {
             try {
                 if (_hardwaredetect == 0) {
-                    //Log.d("YAPI", "UpdateDeviceList");
                     YAPI.UpdateDeviceList();
                 }
                 _hardwaredetect = (_hardwaredetect + 1) % 20;
-                if (_sensor == null) _sensor = YTemperature.FirstTemperature();
+                if (_sensor == null) {
+                    _sensor = YTemperature.FirstTemperature();
+                }
                 if (_sensor != null && _sensor.isOnline()) {
                     final String text = String.format(Locale.US, "%.2f %s", _sensor.get_currentValue(), _sensor.get_unit());
                     _temperatureTextView.setText(text);
@@ -43,10 +44,8 @@ public class MainActivity extends AppCompatActivity
                 }
             } catch (YAPI_Exception e) {
                 Snackbar.make(_temperatureTextView, "Error:" + e.getLocalizedMessage(), Snackbar.LENGTH_INDEFINITE).show();
-
-                //e.printStackTrace();
             }
-            _handler.postDelayed(_periodicUpdateDeviceList, 500);
+            _handler.postDelayed(_periodicUpdate, 500);
         }
     };
     private double _hardwaredetect;
@@ -86,14 +85,14 @@ public class MainActivity extends AppCompatActivity
         } catch (YAPI_Exception e) {
             Snackbar.make(_temperatureTextView, "Error:" + e.getLocalizedMessage(), Snackbar.LENGTH_INDEFINITE).show();
         }
-        _handler.postDelayed(_periodicUpdateDeviceList, 500);
+        _handler.postDelayed(_periodicUpdate, 500);
     }
 
 
     @Override
     protected void onStop()
     {
-        _handler.removeCallbacks(_periodicUpdateDeviceList);
+        _handler.removeCallbacks(_periodicUpdate);
         YAPI.FreeAPI();
         super.onStop();
     }
